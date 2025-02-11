@@ -34,11 +34,11 @@ def get_active_words(driver):
         return []
 
 
-def type_words_continuously(driver, wpm=100):
+def type_words_continuously(driver, wpm=60):
     # Calculate base delay between keystrokes
     delay = 60 / (wpm * 5)
     # Wait for the page to be fully loaded and ready
-    # time.sleep(2)
+    time.sleep(2)
 
     # Create ActionChains object
     actions = ActionChains(driver)
@@ -69,22 +69,64 @@ def type_words_continuously(driver, wpm=100):
                         actions.send_keys(char)
                         actions.perform()
                         # Add slight random variation to typing speed
-                        # time.sleep(delay * random.uniform(0.8, 1.2))
+                        time.sleep(delay * random.uniform(0.8, 1.2))
 
                     # Add space after word
                     actions.send_keys(Keys.SPACE)
                     actions.perform()
-                    # time.sleep(delay * random.uniform(1.0, 1.5))
+                    time.sleep(delay * random.uniform(1.0, 1.5))
 
                     typed_word_count += 1
 
             # Brief pause to allow new words to load
-            # time.sleep(delay)
+            time.sleep(delay)
 
     except KeyboardInterrupt:
         print(f"\nStopped typing. Typed {typed_word_count} words.")
     except Exception as e:
         print(f"Error during typing: {e}")
+
+
+def by_pass_cookies(driver):
+    try:
+        # Wait for cookie consent popup using a more generic approach
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "acceptAll"))
+        )
+
+        # Find the accept button - trying multiple possible selectors
+        accept_button = None
+        possible_selectors = [
+            (By.ID, "accept"),
+            (By.CLASS_NAME, "acceptAll"),
+            (By.XPATH, "//button[contains(text(), 'Accept')]"),
+            (By.XPATH, "//div[contains(@class, 'active acceptAll')]//button"),
+            (By.XPATH, "//*[contains(text(), 'Accept') or contains(text(), 'accept')]")
+        ]
+
+        for by, selector in possible_selectors:
+            try:
+                accept_button = driver.find_element(by, selector)
+                if accept_button and accept_button.is_displayed():
+                    break
+            except:
+                continue
+
+        if accept_button:
+            # Use JavaScript click as a fallback if regular click doesn't work
+            try:
+                accept_button.click()
+            except:
+                driver.execute_script("arguments[0].click();", accept_button)
+            print("Cookie popup handled successfully")
+        else:
+            print("Could not find cookie accept button")
+
+    except Exception as e:
+        print(f"Error handling cookie popup: {e}")
+        # Print the page source to debug
+        print("\nPage source:")
+        print(driver.page_source[:1000])  # Print first 1000 chars of page source
 
 
 def main():
@@ -96,6 +138,7 @@ def main():
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.ID, "words"))
         )
+        by_pass_cookies(driver)
         type_words_continuously(driver, wpm=100)  # Adjust WPM as needed
     finally:
         driver.quit()
